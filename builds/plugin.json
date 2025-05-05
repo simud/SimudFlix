@@ -17,7 +17,7 @@
         "version": 16,
         "internalName": "StreamingCommunity",
         "description": "TV Shows and Movies from StreamingCommunity",
-        "url": "https://raw.githubusercontent.com/simud/SimudFlix/refs/heads/master/builds/StreamingCommunity.cs3",
+        "url": "https://raw.githubusercontent.com/simud/SimudFlix/blob/master/builds/StreamingCommunity.cs3",
         "name": "StreamingCommunity"
     }
 ]
