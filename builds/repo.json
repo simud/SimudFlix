@@ -1,6 +1,6 @@
 {
-  "name": "doGior's Had Enough",
-  "description": "Repository with mostly italian providers and some international one",
+  "name": "SimuFlix",
+  "description": "A SimudFlixRepo",
   "manifestVersion": 1,
   "pluginLists": [
     "https://raw.githubusercontent.com/simud/SimudFlix/refs/heads/master/builds/plugin.json"
