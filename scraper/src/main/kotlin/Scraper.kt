@@ -63,6 +63,7 @@ object Scraper {
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun load(title: SearchResult): String? {
         val url = "$MAIN_URL/it/titles/${title.id}-${title.slug}"
         val request = HttpRequest.newBuilder()
@@ -72,19 +73,33 @@ object Scraper {
             .build()
         val response = client.send(request, HttpResponse.BodyHandlers.ofString())
         val props = objectMapper.readValue<Map<String, Any>>(response.body())
-        val titleData = props["props"] as? Map<String, Any> ?: return null
-        val titleMap = titleData["title"] as? Map<String, Any> ?: return null
+        val propsData = props["props"] as? Map<String, Any> ?: run {
+            println("Errore: 'props' non è una mappa valida")
+            return null
+        }
+        val titleMap = propsData["title"] as? Map<String, Any> ?: run {
+            println("Errore: 'title' non è una mappa valida")
+            return null
+        }
 
         return if (titleMap["type"] == "tv") {
-            val seasons = titleMap["seasons"] as? List<Map<String, Any>> ?: return null
+            val seasons = titleMap["seasons"] as? List<Map<String, Any>> ?: run {
+                println("Nessuna stagione trovata per ${title.name}")
+                return null
+            }
             if (seasons.isEmpty()) {
                 println("Nessuna stagione trovata per ${title.name}")
                 return null
             }
-            val loadedSeason = titleData["loadedSeason"] as? Map<String, Any> ?: return null
-            val episodes = loadedSeason["episodes"] as? List<Map<String, Any>> ?: return null
-            val episodeId = episodes.firstOrNull()?.get("id") as? Int
-            if (episodeId == null) {
+            val loadedSeason = propsData["loadedSeason"] as? Map<String, Any> ?: run {
+                println("Errore: 'loadedSeason' non è una mappa valida")
+                return null
+            }
+            val episodes = loadedSeason["episodes"] as? List<Map<String, Any>> ?: run {
+                println("Errore: 'episodes' non è una lista valida")
+                return null
+            }
+            val episodeId = episodes.firstOrNull()?.get("id") as? Int ?: run {
                 println("Nessun episodio trovato per ${title.name}")
                 return null
             }
