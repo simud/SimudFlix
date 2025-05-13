@@ -38,6 +38,7 @@ object Scraper {
 
     fun setupHeaders(maxRetries: Int = 2): Boolean {
         try {
+            println("setupHeaders - Directory di lavoro corrente: ${System.getProperty("user.dir")}")
             // Leggi i cookie da cookies.json, se disponibile
             val cookiesFile = File("cookies.json")
             if (cookiesFile.exists()) {
@@ -56,7 +57,8 @@ object Scraper {
             // Usa archive.html generato da cloudscraper
             val archiveFile = File("archive.html")
             if (!archiveFile.exists()) {
-                println("setupHeaders - Errore: archive.html non trovato. Assicurati che cloudscraper abbia funzionato.")
+                println("setupHeaders - Errore: archive.html non trovato. Elenco file nella directory:")
+                File(".").listFiles()?.forEach { println("setupHeaders - File: ${it.name}") }
                 File("response.html").writeText("Errore: archive.html non trovato")
                 return false
             }
@@ -210,7 +212,7 @@ object Scraper {
             }
 
             val doc = Jsoup.parse(response.body())
-            val iframeSrc = doc.selectFirst("iframe")?.attr("src") ?: run {
+            val iframeSrc = doc.selectFirst("iframe")?.attr tylus/src") ?: run {
                 println("getPlaylistLink - Errore: Impossibile trovare iframe")
                 return null
             }
@@ -277,6 +279,7 @@ object Scraper {
 
 fun main(args: Array<String>) {
     try {
+        println("main - Directory di lavoro corrente: ${System.getProperty("user.dir")}")
         if (!Scraper.setupHeaders()) {
             println("main - Errore: Impossibile configurare gli headers. Interruzione.")
             File("Simud.m3u").writeText("#EXTM3U\n# Errore: Impossibile configurare gli headers")
