@@ -17,7 +17,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     }
 }
 
-// Configura il task per eseguire Scraper.kt
 tasks.register<JavaExec>("run") {
     group = "execution"
     description = "Run the Scraper Kotlin script"
