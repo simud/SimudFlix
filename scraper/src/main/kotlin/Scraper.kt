@@ -12,15 +12,22 @@ import java.net.URI
 object Scraper {
     private const val MAIN_URL = "https://streamingunity.to"
     private val headers = mutableMapOf(
-        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0",
+        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
         "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language" to "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
         "Accept-Encoding" to "gzip, deflate, br",
         "X-Requested-With" to "XMLHttpRequest",
-        "X-Inertia" to "true"
+        "X-Inertia" to "true",
+        "Sec-Ch-Ua" to "\"Chromium\";v=\"128\", \"Not;A=Brand\";v=\"24\", \"Google Chrome\";v=\"128\"",
+        "Sec-Ch-Ua-Mobile" to "?0",
+        "Sec-Ch-Ua-Platform" to "\"Windows\""
     )
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
     private val client: HttpClient = HttpClient.newBuilder().build()
+    // Per usare un proxy, decommenta e configura:
+    // private val client: HttpClient = HttpClient.newBuilder()
+    //     .proxy(java.net.ProxySelector.of(java.net.InetSocketAddress("your-proxy", 8080)))
+    //     .build()
 
     data class SearchResult(val name: String, val id: Int, val slug: String, val type: String)
     data class Script(val masterPlaylist: MasterPlaylist, val canPlayFHD: Boolean)
@@ -39,7 +46,15 @@ object Scraper {
             println("setupHeaders - HTTP Status: ${response.statusCode()}")
             println("setupHeaders - Response Headers: ${response.headers().map()}")
             println("setupHeaders - Response Body (truncated): ${response.body().take(1000)}")
+            
+            // Salva il corpo della risposta per debug
+            File("response.html").writeText(response.body())
+            println("setupHeaders - Risposta salvata in response.html")
 
+            if (response.statusCode() == 409) {
+                println("setupHeaders - Errore HTTP 409: Conflitto. Possibile blocco Cloudflare o configurazione errata.")
+                return false
+            }
             if (response.statusCode() != 200) {
                 println("setupHeaders - Errore HTTP: ${response.statusCode()}")
                 return false
