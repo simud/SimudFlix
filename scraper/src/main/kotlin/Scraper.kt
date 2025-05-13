@@ -38,34 +38,27 @@ object Scraper {
 
     fun setupHeaders(maxRetries: Int = 2): Boolean {
         try {
-            // Prima richiesta per ottenere il token CSRF
-            val initialRequest = HttpRequest.newBuilder()
-                .uri(URI.create(MAIN_URL))
-                .headers(*headers.toList().flatMap { (key, value) -> listOf(key, value) }.toTypedArray())
-                .GET()
-                .build()
-            val initialResponse = client.send(initialRequest, HttpResponse.BodyHandlers.ofString())
-            println("setupHeaders - Initial HTTP Status: ${initialResponse.statusCode()}")
-            println("setupHeaders - Initial Response Headers: ${initialResponse.headers().map()}")
-            println("setupHeaders - Initial Response Body (truncated): ${initialResponse.body().take(1000)}")
-
-            // Salva la risposta iniziale
-            File("initial_response.html").writeText(initialResponse.body())
-            println("setupHeaders - Risposta iniziale salvata in initial_response.html")
-
-            // Estrai il cookie XSRF-TOKEN
-            val cookies = initialResponse.headers().allValues("set-cookie").joinToString("; ")
+            // Leggi i cookie da cookies.json generato da cloudscraper
+            val cookiesFile = File("cookies.json")
+            if (!cookiesFile.exists()) {
+                println("setupHeaders - Errore: cookies.json non trovato. Assicurati che cloudscraper abbia funzionato.")
+                File("response.html").writeText("Errore: cookies.json non trovato")
+                return false
+            }
+            val cookiesJson = cookiesFile.readText()
+            val cookies = objectMapper.readValue<List<String>>(cookiesJson).joinToString("; ")
             if (cookies.contains("XSRF-TOKEN")) {
                 headers["Cookie"] = cookies
-                println("setupHeaders - Cookie XSRF-TOKEN impostato: $cookies")
+                println("setupHeaders - Cookie XSRF-TOKEN impostato da cookies.json: $cookies")
             } else {
-                println("setupHeaders - Avviso: Nessun XSRF-TOKEN trovato nei cookie")
+                println("setupHeaders - Avviso: Nessun XSRF-TOKEN trovato in cookies.json")
             }
 
             // Usa archive.html generato da cloudscraper
             val archiveFile = File("archive.html")
             if (!archiveFile.exists()) {
                 println("setupHeaders - Errore: archive.html non trovato. Assicurati che cloudscraper abbia funzionato.")
+                File("response.html").writeText("Errore: archive.html non trovato")
                 return false
             }
             val body = archiveFile.readText()
@@ -89,7 +82,6 @@ object Scraper {
             }
 
             headers["X-Inertia-Version"] = version
-            headers["Cookie"] = cookies
             println("setupHeaders - Headers configurati. Inertia Version: $version")
             return true
         } catch (e: Exception) {
