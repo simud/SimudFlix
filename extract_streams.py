@@ -1,4 +1,4 @@
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 import jmespath
 import json
@@ -6,8 +6,6 @@ import re
 from urllib.parse import urljoin, urlparse
 import logging
 import time
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 # Configura il logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -22,12 +20,14 @@ class StreamingCommunityExtractor:
             "X-Requested-With": "XMLHttpRequest",
             "X-Inertia": "true",
             "Accept-Language": "en-US,en;q=0.9",
-            "Connection": "keep-alive"
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-User": "?1"
         }
-        self.session = requests.Session()
-        # Configura retry per errori 429, 409, 500, 502, 503, 504
-        retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 409, 500, 502, 503, 504])
-        self.session.mount('https://', HTTPAdapter(max_retries=retries))
+        self.session = cloudscraper.create_scraper()  # Usa cloudscraper per bypassare Cloudflare
         self.inertia_version = ""
         self.setup_headers()
 
@@ -36,7 +36,8 @@ class StreamingCommunityExtractor:
         for attempt in range(max_attempts):
             try:
                 logger.info(f"Tentativo {attempt + 1} di configurazione headers...")
-                response = self.session.get(f"{self.main_url}/archive", headers=self.headers, timeout=10)
+                # Usa /it invece di /archive
+                response = self.session.get(f"{self.main_url}/it", headers=self.headers, timeout=10)
                 response.raise_for_status()
                 cookies = response.cookies.get_dict()
                 self.headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
@@ -179,7 +180,7 @@ def main():
     marvel_titles = [
         "Avengers: Endgame",
         "Spider-Man: No Way Home",
-        "Black Black Panther",
+        "Black Panther",
         "Thor: Ragnarok",
         "WandaVision"
     ]
