@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         minSdk = 21
-        testOptions.targetSdk = 35 // Corretto da targetSdk a testOptions.targetSdk
+        testOptions.targetSdk = 35
     }
 
     compileOptions {
@@ -20,7 +20,6 @@ android {
 }
 
 cloudstream {
-    // All of these properties are optional, you can safely remove them
     version = 17
     description = "TV Shows and Movies from StreamingCommunity (now StreamingUnity)"
     authors = listOf("doGior")
