@@ -29,7 +29,7 @@ jobs:
 
       - name: Fetch archive page with cloudscraper
         run: |
-          node -e "const cloudscraper = require('cloudscraper'); cloudscraper.get('https://streamingunity.to/archive', { resolveWithFullResponse: true }).then(response => { require('fs').writeFileSync('archive.html', response.body); require('fs').writeFileSync('cookies.json', JSON.stringify(response.headers['set-cookie'] || [])); console.log('archive.html generato con successo'); }).catch(err => { console.error('Errore cloudscraper:', err.message, err.stack); require('fs').writeFileSync('cloudscraper_error.txt', err.message + '\n' + err.stack); process.exit(1); });"
+          node -e "const cloudscraper = require('cloudscraper'); cloudscraper.get('https://streamingunity.to/archive', { resolveWithFullResponse: true }).then(response => { require('fs').writeFileSync('archive.html', response.body); const cookies = response.headers['set-cookie'] || []; require('fs').writeFileSync('cookies.json', JSON.stringify(cookies)); console.log('archive.html generato con successo, cookies:', cookies); require('fs').writeFileSync('cloudscraper_response.json', JSON.stringify({ status: response.statusCode, headers: response.headers, bodyLength: response.body.length })); }).catch(err => { console.error('Errore cloudscraper:', err.message, err.stack); require('fs').writeFileSync('cloudscraper_error.txt', err.message + '\n' + err.stack); process.exit(1); });"
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -57,4 +57,5 @@ jobs:
             archive.html
             cookies.json
             cloudscraper_error.txt
+            cloudscraper_response.json
         continue-on-error: true
