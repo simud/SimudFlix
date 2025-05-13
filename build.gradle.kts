@@ -21,6 +21,14 @@ allprojects {
         mavenCentral()
         maven("https://jitpack.io")
     }
+
+    // Forza la versione di Kotlin per evitare conflitti
+    configurations.all {
+        resolutionStrategy {
+            force("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
+            force("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
+        }
+    }
 }
 
 fun Project.cloudstream(configuration: CloudstreamExtension.() -> Unit) =
