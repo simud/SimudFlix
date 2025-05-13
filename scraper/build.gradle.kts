@@ -1,5 +1,5 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.1.0"
+    kotlin("jvm") // Usa la versione definita nel buildscript della root
     java
 }
 
