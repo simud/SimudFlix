@@ -23,7 +23,6 @@ object Scraper {
     private val client: HttpClient = HttpClient.newBuilder().build()
 
     data class SearchResult(val name: String, val id: Int, val slug: String, val type: String)
-    data class TitleProps(val title: Map<String, Any>, val loadedSeason: Map<String, Any>?)
     data class Script(val masterPlaylist: MasterPlaylist, val canPlayFHD: Boolean)
     data class MasterPlaylist(val url: String, val params: Params)
     data class Params(val token: String, val expires: String)
@@ -40,7 +39,6 @@ object Scraper {
             ?: throw IllegalStateException("Impossibile trovare data-page")
         val version = objectMapper.readValue<Map<String, Any>>(dataPage)["version"] as String
         headers["X-Inertia-Version"] = version
-        // Simula i cookie, se necessario
         headers["Cookie"] = response.headers().allValues("set-cookie").joinToString("; ")
         println("Headers configurati. Inertia Version: $version")
     }
@@ -73,25 +71,26 @@ object Scraper {
             .GET()
             .build()
         val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-        val props = objectMapper.readValue<Map<String, Any>>(response.body())["props"] as Map<String, Any>
-        val titleData = props["title"] as Map<String, Any>
+        val props = objectMapper.readValue<Map<String, Any>>(response.body())
+        val titleData = props["props"] as? Map<String, Any> ?: return null
+        val titleMap = titleData["title"] as? Map<String, Any> ?: return null
 
-        return if (titleData["type"] == "tv") {
-            val seasons = titleData["seasons"] as List<Map<String, Any>>
+        return if (titleMap["type"] == "tv") {
+            val seasons = titleMap["seasons"] as? List<Map<String, Any>> ?: return null
             if (seasons.isEmpty()) {
                 println("Nessuna stagione trovata per ${title.name}")
                 return null
             }
-            val episodeId = (props["loadedSeason"] as Map<String, Any>)["episodes"]?.let {
-                (it as List<Map<String, Any>>).firstOrNull()?.get("id")
-            } as Int?
+            val loadedSeason = titleData["loadedSeason"] as? Map<String, Any> ?: return null
+            val episodes = loadedSeason["episodes"] as? List<Map<String, Any>> ?: return null
+            val episodeId = episodes.firstOrNull()?.get("id") as? Int
             if (episodeId == null) {
                 println("Nessun episodio trovato per ${title.name}")
                 return null
             }
-            "$MAIN_URL/it/iframe/${titleData["id"]}?episode_id=$episodeId&canPlayFHD=1"
+            "$MAIN_URL/it/iframe/${titleMap["id"]}?episode_id=$episodeId&canPlayFHD=1"
         } else {
-            "$MAIN_URL/it/iframe/${titleData["id"]}&canPlayFHD=1"
+            "$MAIN_URL/it/iframe/${titleMap["id"]}&canPlayFHD=1"
         }
     }
 
