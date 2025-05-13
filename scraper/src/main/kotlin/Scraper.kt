@@ -2,9 +2,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.jsoup.Jsoup
+import com.github.Blatzar.NiceHttp.Request
 import java.io.File
-import java.net.URL
-import java.net.URLDecoder
 
 object Scraper {
     private const val MAIN_URL = "https://streamingunity.to"
@@ -23,7 +22,7 @@ object Scraper {
     data class TitleProps(val title: Map<String, Any>, val loadedSeason: Map<String, Any>?)
 
     fun setupHeaders() {
-        val response = URL("$MAIN_URL/it").readText()
+        val response = Request.get("$MAIN_URL/it", headers).execute().body()
         val doc = Jsoup.parse(response)
         val dataPage = doc.selectFirst("#app")?.attr("data-page")
             ?: throw IllegalStateException("Impossibile trovare data-page")
@@ -35,7 +34,7 @@ object Scraper {
 
     fun search(query: String): List<SearchResult> {
         val url = "$MAIN_URL/api/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}"
-        val response = URL(url).readText()
+        val response = Request.get(url, headers).execute().body()
         val data = objectMapper.readValue<List<Map<String, Any>>>(response)
         return data.filter { it["type"] in listOf("movie", "tv") }.map {
             SearchResult(
@@ -49,7 +48,7 @@ object Scraper {
 
     fun load(title: SearchResult): String? {
         val url = "$MAIN_URL/it/titles/${title.id}-${title.slug}"
-        val response = URL(url).readText()
+        val response = Request.get(url, headers).execute().body()
         val props = objectMapper.readValue<Map<String, Any>>(response)["props"] as Map<String, Any>
         val titleData = props["title"] as Map<String, Any>
         
@@ -73,11 +72,13 @@ object Scraper {
     }
 
     fun getPlaylistLink(url: String): String? {
-        val response = URL(url).readText()
+        val response = Request.get(url, headers).execute().body()
         val doc = Jsoup.parse(response)
         val iframeSrc = doc.selectFirst("iframe")?.attr("src") ?: return null
         
-        val iframeResponse = URL(iframeSrc).readText()
+        val iframeHeaders = headers.toMutableMap()
+        iframeHeaders["Referer"] = MAIN_URL
+        val iframeResponse = Request.get(iframeSrc, iframeHeaders).execute().body()
         val iframeDoc = Jsoup.parse(iframeResponse)
         val script = iframeDoc.select("script").first { it.html().contains("masterPlaylist") }.html()
         
