@@ -22,7 +22,6 @@ allprojects {
         maven("https://jitpack.io")
     }
 
-    // Forza la versione di Kotlin per evitare conflitti
     configurations.all {
         resolutionStrategy {
             force("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
@@ -38,7 +37,6 @@ fun Project.android(configuration: BaseExtension.() -> Unit) =
     extensions.getByName<BaseExtension>("android").configuration()
 
 subprojects {
-    // Configura le opzioni di compilazione Kotlin per tutti i moduli
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
