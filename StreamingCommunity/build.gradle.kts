@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         minSdk = 21
-        targetSdk = 35
+        testOptions.targetSdk = 35 // Corretto da targetSdk a testOptions.targetSdk
     }
 
     compileOptions {
@@ -20,7 +20,20 @@ android {
 }
 
 cloudstream {
-    setRepo(System.getenv("GITHUB_REPOSITORY") ?: "https://github.com/doGior/doGiorsHadEnough")
+    // All of these properties are optional, you can safely remove them
+    version = 17
+    description = "TV Shows and Movies from StreamingCommunity (now StreamingUnity)"
+    authors = listOf("doGior")
+    status = 1
+    tvTypes = listOf(
+        "TvSeries",
+        "Movie",
+        "Documentary",
+        "Cartoon"
+    )
+    requiresResources = false
+    language = "it"
+    iconUrl = "https://streamingunity.to/apple-touch-icon.png?v=2"
 }
 
 dependencies {
