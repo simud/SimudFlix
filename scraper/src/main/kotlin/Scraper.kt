@@ -168,52 +168,51 @@ object Scraper {
         println("Playlist URL estratto: $playlistUrl")
         return playlistUrl
     }
+}
 
-    @JvmStatic
-    fun main(args: Array<String>) {
-        setupHeaders()
+fun main(args: Array<String>) {
+    Scraper.setupHeaders()
 
-        val marvelTitles = listOf(
-            "Avengers: Endgame",
-            "Spider-Man: No Way Home",
-            "Black Panther",
-            "Thor: Ragnarok",
-            "WandaVision"
-        )
+    val marvelTitles = listOf(
+        "Avengers: Endgame",
+        "Spider-Man: No Way Home",
+        "Black Panther",
+        "Thor: Ragnarok",
+        "WandaVision"
+    )
 
-        val streams = mutableListOf<Pair<String, String>>()
+    val streams = mutableListOf<Pair<String, String>>()
 
-        marvelTitles.forEach { titleName ->
-            println("Cercando: $titleName")
-            val searchResults = search(titleName)
-            if (searchResults.isEmpty()) {
-                println("Nessun risultato trovato per: $titleName")
-                return@forEach
-            }
-
-            val title = searchResults.first()
-            println("Trovato: ${title.name} (${title.type})")
-
-            val dataUrl = load(title)
-            if (dataUrl == null) {
-                println("Impossibile ottenere l'URL del flusso per: ${title.name}")
-                return@forEach
-            }
-
-            val streamUrl = getPlaylistLink(dataUrl)
-            if (streamUrl != null) {
-                streams.add(title.name to streamUrl)
-            } else {
-                println("Impossibile estrarre il flusso per: ${title.name}")
-            }
+    marvelTitles.forEach { titleName ->
+        println("Cercando: $titleName")
+        val searchResults = Scraper.search(titleName)
+        if (searchResults.isEmpty()) {
+            println("Nessun risultato trovato per: $titleName")
+            return@forEach
         }
 
-        // Genera Simud.m3u
-        val m3uContent = "#EXTM3U\n" + streams.joinToString("\n") { (name, url) ->
-            "#EXTINF:-1 tvg-name=\"$name\",$name\n$url"
+        val title = searchResults.first()
+        println("Trovato: ${title.name} (${title.type})")
+
+        val dataUrl = Scraper.load(title)
+        if (dataUrl == null) {
+            println("Impossibile ottenere l'URL del flusso per: ${title.name}")
+            return@forEach
         }
 
-        File("Simud.m3u").writeText(m3uContent)
-        println("File M3U generato: Simud.m3u")
+        val streamUrl = Scraper.getPlaylistLink(dataUrl)
+        if (streamUrl != null) {
+            streams.add(title.name to streamUrl)
+        } else {
+            println("Impossibile estrarre il flusso per: ${title.name}")
+        }
     }
+
+    // Genera Simud.m3u
+    val m3uContent = "#EXTM3U\n" + streams.joinToString("\n") { (name, url) ->
+        "#EXTINF:-1 tvg-name=\"$name\",$name\n$url"
+    }
+
+    File("Simud.m3u").writeText(m3uContent)
+    println("File M3U generato: Simud.m3u")
 }
