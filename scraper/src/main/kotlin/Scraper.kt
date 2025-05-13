@@ -16,8 +16,6 @@ object Scraper {
         "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language" to "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
         "Accept-Encoding" to "gzip, deflate, br",
-        "Connection" to "keep-alive",
-        "Upgrade-Insecure-Requests" to "1",
         "X-Requested-With" to "XMLHttpRequest",
         "X-Inertia" to "true"
     )
