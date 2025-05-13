@@ -38,20 +38,19 @@ object Scraper {
 
     fun setupHeaders(maxRetries: Int = 2): Boolean {
         try {
-            // Leggi i cookie da cookies.json generato da cloudscraper
+            // Leggi i cookie da cookies.json, se disponibile
             val cookiesFile = File("cookies.json")
-            if (!cookiesFile.exists()) {
-                println("setupHeaders - Errore: cookies.json non trovato. Assicurati che cloudscraper abbia funzionato.")
-                File("response.html").writeText("Errore: cookies.json non trovato")
-                return false
-            }
-            val cookiesJson = cookiesFile.readText()
-            val cookies = objectMapper.readValue<List<String>>(cookiesJson).joinToString("; ")
-            if (cookies.contains("XSRF-TOKEN")) {
-                headers["Cookie"] = cookies
-                println("setupHeaders - Cookie XSRF-TOKEN impostato da cookies.json: $cookies")
+            if (cookiesFile.exists()) {
+                val cookiesJson = cookiesFile.readText()
+                val cookies = objectMapper.readValue<List<String>>(cookiesJson).joinToString("; ")
+                if (cookies.isNotEmpty() && cookies.contains("XSRF-TOKEN")) {
+                    headers["Cookie"] = cookies
+                    println("setupHeaders - Cookie XSRF-TOKEN impostato da cookies.json: $cookies")
+                } else {
+                    println("setupHeaders - Avviso: Nessun XSRF-TOKEN trovato in cookies.json o cookies.json vuoto")
+                }
             } else {
-                println("setupHeaders - Avviso: Nessun XSRF-TOKEN trovato in cookies.json")
+                println("setupHeaders - Avviso: cookies.json non trovato. Procedo senza cookie.")
             }
 
             // Usa archive.html generato da cloudscraper
@@ -99,13 +98,13 @@ object Scraper {
             val url = "$MAIN_URL/api/search?q=$encodedQuery"
             val request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .headers(*headers.toList().flatMap { (key, value) -> listOf(key, value) }.toTypedArray())
+                .headers(*headers.toList().flatMap { (k, v) -> listOf(k, v) }.toTypedArray())
                 .GET()
                 .build()
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
             println("search - HTTP Status: ${response.statusCode()}")
             println("search - Response Body (truncated): ${response.body().take(500)}")
-            
+
             if (response.statusCode() != 200) {
                 println("search - Errore HTTP: ${response.statusCode()}")
                 return emptyList()
@@ -133,13 +132,13 @@ object Scraper {
             val url = "$MAIN_URL/it/titles/${title.id}-${title.slug}"
             val request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .headers(*headers.toList().flatMap { (key, value) -> listOf(key, value) }.toTypedArray())
+                .headers(*headers.toList().flatMap { (k, v) -> listOf(k, v) }.toTypedArray())
                 .GET()
                 .build()
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
             println("load - HTTP Status: ${response.statusCode()}")
             println("load - Response Body (truncated): ${response.body().take(500)}")
-            
+
             if (response.statusCode() != 200) {
                 println("load - Errore HTTP: ${response.statusCode()}")
                 return null
@@ -198,13 +197,13 @@ object Scraper {
             }
             val request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .headers(*iframeHeaders.toList().flatMap { (key, value) -> listOf(key, value) }.toTypedArray())
+                .headers(*iframeHeaders.toList().flatMap { (k, v) -> listOf(k, v) }.toTypedArray())
                 .GET()
                 .build()
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
             println("getPlaylistLink - HTTP Status: ${response.statusCode()}")
             println("getPlaylistLink - Response Body (truncated): ${response.body().take(500)}")
-            
+
             if (response.statusCode() != 200) {
                 println("getPlaylistLink - Errore HTTP: ${response.statusCode()}")
                 return null
@@ -218,13 +217,13 @@ object Scraper {
 
             val iframeRequest = HttpRequest.newBuilder()
                 .uri(URI.create(iframeSrc))
-                .headers(*iframeHeaders.toList().flatMap { (key, value) -> listOf(key, value) }.toTypedArray())
+                .headers(*iframeHeaders.toList().flatMap { (k, v) -> listOf(k, v) }.toTypedArray())
                 .GET()
                 .build()
             val iframeResponse = client.send(iframeRequest, HttpResponse.BodyHandlers.ofString())
             println("getPlaylistLink - Iframe HTTP Status: ${iframeResponse.statusCode()}")
             println("getPlaylistLink - Iframe Response Body (truncated): ${iframeResponse.body().take(500)}")
-            
+
             if (iframeResponse.statusCode() != 200) {
                 println("getPlaylistLink - Errore Iframe HTTP: ${iframeResponse.statusCode()}")
                 return null
