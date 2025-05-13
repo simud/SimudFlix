@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") // Usa la versione definita nel buildscript della root
+    kotlin("jvm")
     java
 }
 
@@ -26,4 +26,8 @@ tasks.register<JavaExec>("run") {
     description = "Run the Scraper Kotlin script"
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("ScraperKt")
+    // Aggiungi debug per il classpath
+    doFirst {
+        println("Classpath: ${classpath.files.joinToString("\n")}")
+    }
 }
