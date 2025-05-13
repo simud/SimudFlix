@@ -29,13 +29,18 @@ jobs:
 
       - name: Fetch archive page with cloudscraper
         run: |
+          echo "Current working directory: $PWD"
           node -e "const cloudscraper = require('cloudscraper'); cloudscraper.get('https://streamingunity.to/archive', { resolveWithFullResponse: true }).then(response => { require('fs').writeFileSync('archive.html', response.body); const cookies = response.headers['set-cookie'] || []; require('fs').writeFileSync('cookies.json', JSON.stringify(cookies)); console.log('archive.html generato con successo, cookies:', cookies); require('fs').writeFileSync('cloudscraper_response.json', JSON.stringify({ status: response.statusCode, headers: response.headers, bodyLength: response.body.length })); }).catch(err => { console.error('Errore cloudscraper:', err.message, err.stack); require('fs').writeFileSync('cloudscraper_error.txt', err.message + '\n' + err.stack); process.exit(1); });"
+          echo "Verifica file generati:"
+          ls -l archive.html cookies.json cloudscraper_response.json cloudscraper_error.txt || echo "Alcuni file non trovati"
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       - name: Build and run scraper
-        run: ./gradlew :scraper:run --stacktrace
+        run: |
+          echo "Current working directory before gradle: $PWD"
+          ./gradlew :scraper:run --stacktrace
 
       - name: Commit and push updated M3U file
         run: |
