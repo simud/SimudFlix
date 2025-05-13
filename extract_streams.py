@@ -5,6 +5,9 @@ import json
 import re
 from urllib.parse import urljoin, urlparse
 import logging
+import time
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Configura il logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,36 +18,55 @@ class StreamingCommunityExtractor:
         self.main_url = "https://streamingunity.to"
         self.headers = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
             "X-Requested-With": "XMLHttpRequest",
-            "X-Inertia": "true"
+            "X-Inertia": "true",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive"
         }
+        self.session = requests.Session()
+        # Configura retry per errori 429, 409, 500, 502, 503, 504
+        retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 409, 500, 502, 503, 504])
+        self.session.mount('https://', HTTPAdapter(max_retries=retries))
         self.inertia_version = ""
         self.setup_headers()
 
-    def setup_headers(self):
-        """Configura i cookie e la versione Inertia."""
-        try:
-            response = requests.get(f"{self.main_url}/archive", headers=self.headers)
-            response.raise_for_status()
-            cookies = response.cookies.get_dict()
-            self.headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            data_page = soup.select_one("#app").get("data-page")
-            self.inertia_version = json.loads(data_page)["version"]
-            self.headers["X-Inertia-Version"] = self.inertia_version
-            logger.info("Headers configurati con successo.")
-        except Exception as e:
-            logger.error(f"Errore durante la configurazione dei headers: {e}")
-            raise
+    def setup_headers(self, max_attempts=3):
+        """Configura i cookie e la versione Inertia con retry."""
+        for attempt in range(max_attempts):
+            try:
+                logger.info(f"Tentativo {attempt + 1} di configurazione headers...")
+                response = self.session.get(f"{self.main_url}/archive", headers=self.headers, timeout=10)
+                response.raise_for_status()
+                cookies = response.cookies.get_dict()
+                self.headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
+                
+                soup = BeautifulSoup(response.text, 'html.parser')
+                data_page = soup.select_one("#app")
+                if not data_page or not data_page.get("data-page"):
+                    logger.error("Impossibile trovare data-page nell'HTML")
+                    raise ValueError("data-page non trovato")
+                
+                self.inertia_version = json.loads(data_page.get("data-page"))["version"]
+                self.headers["X-Inertia-Version"] = self.inertia_version
+                logger.info(f"Headers configurati con successo. Inertia Version: {self.inertia_version}")
+                return
+            except Exception as e:
+                logger.error(f"Errore tentativo {attempt + 1}: {e}")
+                if attempt < max_attempts - 1:
+                    time.sleep(2 ** attempt)  # Backoff esponenziale
+                else:
+                    raise Exception(f"Impossibile configurare headers dopo {max_attempts} tentativi: {e}")
+        
+        raise Exception("Impossibile configurare headers")
 
     def search(self, query):
         """Cerca titoli sul sito."""
         url = f"{self.main_url}/api/search"
         params = {"q": query}
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            time.sleep(1)  # Ritardo per evitare blocchi
+            response = self.session.get(url, headers=self.headers, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
             titles = jmespath.search("data[?type=='movie' || type=='tv'].{name: name, id: id, slug: slug, type: type}", data)
@@ -69,13 +91,13 @@ class StreamingCommunityExtractor:
         actual_url = self.get_actual_url(url).replace(self.main_url, f"{self.main_url}/it")
         
         try:
-            response = requests.get(actual_url, headers=self.headers)
+            time.sleep(1)  # Ritardo per evitare blocchi
+            response = self.session.get(actual_url, headers=self.headers, timeout=10)
             response.raise_for_status()
             props = json.loads(response.text)["props"]
             title_data = props["title"]
             
             if title_data["type"] == "tv":
-                # Per le serie TV, prendiamo il primo episodio della prima stagione
                 seasons = title_data.get("seasons", [])
                 if not seasons:
                     logger.warning(f"Nessuna stagione trovata per {title['name']}")
@@ -97,12 +119,12 @@ class StreamingCommunityExtractor:
     def get_playlist_link(self, url):
         """Estrae il link del playlist M3U8."""
         try:
-            response = requests.get(url, headers=self.headers)
+            time.sleep(1)  # Ritardo per evitare blocchi
+            response = self.session.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
             iframe_src = soup.select_one("iframe").get("src")
             
-            # Estrai lo script con il masterPlaylist
             iframe_headers = self.headers.copy()
             iframe_headers.update({
                 "Referer": self.main_url,
@@ -110,13 +132,12 @@ class StreamingCommunityExtractor:
                 "Sec-Fetch-Mode": "navigate",
                 "Sec-Fetch-Site": "cross-site"
             })
-            iframe_response = requests.get(iframe_src, headers=iframe_headers)
+            iframe_response = self.session.get(iframe_src, headers=iframe_headers, timeout=10)
             iframe_response.raise_for_status()
             iframe_soup = BeautifulSoup(iframe_response.text, 'html.parser')
             scripts = iframe_soup.select("script")
             script = next(s for s in scripts if "masterPlaylist" in s.text).text
             
-            # Sanitizza lo script per il parsing JSON
             script_json = re.sub(r'window\.(video|streams|masterPlaylist|canPlayFHD)', r'"\1"', script)
             script_json = re.sub(r'params', r'"params"', script_json)
             script_json = re.sub(r'url', r'"url"', script_json)
@@ -155,13 +176,12 @@ def generate_m3u(titles_streams, output_file="Simud.m3u"):
     logger.info(f"File M3U generato: {output_file}")
 
 def main():
-    # Lista di 5 titoli Marvel da cercare
     marvel_titles = [
         "Avengers: Endgame",
         "Spider-Man: No Way Home",
-        "Black Panther",
+        "Black Black Panther",
         "Thor: Ragnarok",
-        "WandaVision"  # Serie TV
+        "WandaVision"
     ]
     
     extractor = StreamingCommunityExtractor()
@@ -171,7 +191,6 @@ def main():
         logger.info(f"Cercando: {title_name}")
         search_results = extractor.search(title_name)
         
-        # Prendi il primo risultato (più rilevante)
         if not search_results:
             logger.warning(f"Nessun risultato trovato per: {title_name}")
             continue
@@ -179,20 +198,17 @@ def main():
         title = search_results[0]
         logger.info(f"Trovato: {title['name']} ({title['type']})")
         
-        # Carica i dettagli del titolo
         data_url = extractor.load(title)
         if not data_url:
             logger.warning(f"Impossibile ottenere l'URL del flusso per: {title['name']}")
             continue
         
-        # Estrai il link del playlist M3U8
         stream_url = extractor.get_playlist_link(data_url)
         if stream_url:
             titles_streams.append((title['name'], stream_url))
         else:
             logger.warning(f"Impossibile estrarre il flusso per: {title['name']}")
     
-    # Genera il file M3U
     generate_m3u(titles_streams)
 
 if __name__ == "__main__":
