@@ -26,8 +26,11 @@ tasks.register<JavaExec>("run") {
     description = "Run the Scraper Kotlin script"
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("ScraperKt")
-    // Aggiungi debug per il classpath
+    // Debug per il classpath e le classi compilate
     doFirst {
         println("Classpath: ${classpath.files.joinToString("\n")}")
+        val classesDir = file("build/classes/kotlin/main")
+        println("Classi compilate in $classesDir:")
+        classesDir.walk().forEach { println(it) }
     }
 }
