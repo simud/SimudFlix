@@ -30,7 +30,7 @@ fun Project.android(configuration: BaseExtension.() -> Unit) =
     extensions.getByName<BaseExtension>("android").configuration()
 
 subprojects {
-    // Applica i plugin solo ai moduli appropriati
+    // Applica i plugin solo al modulo StreamingCommunity
     if (name == "StreamingCommunity") {
         apply(plugin = "com.android.library")
         apply(plugin = "kotlin-android")
@@ -41,12 +41,11 @@ subprojects {
         }
 
         android {
-            namespace = "it.dogior.hadEnough"
-            compileSdk = 35
+            compileSdkVersion(35) // Usa compileSdkVersion invece di compileSdk
 
             defaultConfig {
-                minSdk = 21
-                targetSdk = 35
+                minSdkVersion(21)
+                targetSdkVersion(35)
             }
 
             compileOptions {
