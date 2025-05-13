@@ -19,18 +19,19 @@ jobs:
           distribution: 'adopt'
           java-version: '17'
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+
+      - name: Install cloudscraper
+        run: npm install cloudscraper
+
+      - name: Fetch archive page
+        run: node -e "const cloudscraper = require('cloudscraper'); cloudscraper.get('https://streamingunity.to/archive').then(html => require('fs').writeFileSync('archive.html', html)).catch(err => { console.error('Errore cloudscraper:', err); process.exit(1); });"
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-
-      # Passo opzionale per cloudscraper
-      # - name: Set up Node.js
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version: '16'
-      # - name: Install cloudscraper
-      #   run: npm install cloudscraper
-      # - name: Fetch archive page
-      #   run: node -e "const cloudscraper = require('cloudscraper'); cloudscraper.get('https://streamingunity.to/archive').then(html => require('fs').writeFileSync('archive.html', html));"
 
       - name: Build and run scraper
         run: ./gradlew :scraper:run --stacktrace
@@ -44,9 +45,13 @@ jobs:
           git push
         continue-on-error: true
 
-      - name: Upload M3U Artifact
+      - name: Upload M3U and debug artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Simud-IPTV
-          path: Simud.m3u
+          name: Simud-IPTV-Debug
+          path: |
+            Simud.m3u
+            response.html
+            initial_response.html
+            archive.html
         continue-on-error: true
