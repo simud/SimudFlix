@@ -27,8 +27,9 @@ jobs:
       - name: Install cloudscraper
         run: npm install cloudscraper
 
-      - name: Fetch archive page
-        run: node -e "const cloudscraper = require('cloudscraper'); cloudscraper.get('https://streamingunity.to/archive').then(html => require('fs').writeFileSync('archive.html', html)).catch(err => { console.error('Errore cloudscraper:', err); process.exit(1); });"
+      - name: Fetch archive page with cloudscraper
+        run: |
+          node -e "const cloudscraper = require('cloudscraper'); cloudscraper.get('https://streamingunity.to/archive', { resolveWithFullResponse: true }).then(response => { require('fs').writeFileSync('archive.html', response.body); require('fs').writeFileSync('cookies.json', JSON.stringify(response.headers['set-cookie'] || [])); console.log('archive.html generato con successo'); }).catch(err => { console.error('Errore cloudscraper:', err.message, err.stack); require('fs').writeFileSync('cloudscraper_error.txt', err.message + '\n' + err.stack); process.exit(1); });"
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -54,4 +55,6 @@ jobs:
             response.html
             initial_response.html
             archive.html
+            cookies.json
+            cloudscraper_error.txt
         continue-on-error: true
