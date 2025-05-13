@@ -2,12 +2,17 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.jsoup.Jsoup
-import com.github.Blatzar.NiceHttp.Request
+import org.jsoup.nodes.Document
 import java.io.File
+import java.net.URLEncoder
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.net.URI
 
 object Scraper {
     private const val MAIN_URL = "https://streamingunity.to"
-    private val headers = mutableMapOf(
+    private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36",
         "Accept" to "application/json, text/plain, */*",
         "Accept-Language" to "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -17,25 +22,37 @@ object Scraper {
     )
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
     private var inertiaVersion: String? = null
+    private val client: HttpClient = HttpClient.newBuilder().build()
 
     data class SearchResult(val name: String, val id: Int, val slug: String, val type: String)
     data class TitleProps(val title: Map<String, Any>, val loadedSeason: Map<String, Any>?)
 
     fun setupHeaders() {
-        val response = Request.get("$MAIN_URL/it", headers).execute().body()
-        val doc = Jsoup.parse(response)
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("$MAIN_URL/it"))
+            .headers(*headers.toList().flatMap { listOf(it.key, it.value) }.toTypedArray())
+            .GET()
+            .build()
+        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+        val doc = Jsoup.parse(response.body())
         val dataPage = doc.selectFirst("#app")?.attr("data-page")
             ?: throw IllegalStateException("Impossibile trovare data-page")
         val version = objectMapper.readValue<Map<String, Any>>(dataPage)["version"] as String
         inertiaVersion = version
-        headers["X-Inertia-Version"] = version
+        headers.plus("X-Inertia-Version" to version)
         println("Headers configurati. Inertia Version: $version")
     }
 
     fun search(query: String): List<SearchResult> {
-        val url = "$MAIN_URL/api/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}"
-        val response = Request.get(url, headers).execute().body()
-        val data = objectMapper.readValue<List<Map<String, Any>>>(response)
+        val encodedQuery = URLEncoder.encode(query, "UTF-8")
+        val url = "$MAIN_URL/api/search?q=$encodedQuery"
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .headers(*headers.toList().flatMap { listOf(it.key, it.value) }.toTypedArray())
+            .GET()
+            .build()
+        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+        val data = objectMapper.readValue<List<Map<String, Any>>>(response.body())
         return data.filter { it["type"] in listOf("movie", "tv") }.map {
             SearchResult(
                 name = it["name"] as String,
@@ -48,8 +65,13 @@ object Scraper {
 
     fun load(title: SearchResult): String? {
         val url = "$MAIN_URL/it/titles/${title.id}-${title.slug}"
-        val response = Request.get(url, headers).execute().body()
-        val props = objectMapper.readValue<Map<String, Any>>(response)["props"] as Map<String, Any>
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .headers(*headers.toList().flatMap { listOf(it.key, it.value) }.toTypedArray())
+            .GET()
+            .build()
+        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+        val props = objectMapper.readValue<Map<String, Any>>(response.body())["props"] as Map<String, Any>
         val titleData = props["title"] as Map<String, Any>
         
         return if (titleData["type"] == "tv") {
@@ -72,15 +94,25 @@ object Scraper {
     }
 
     fun getPlaylistLink(url: String): String? {
-        val response = Request.get(url, headers).execute().body()
-        val doc = Jsoup.parse(response)
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .headers(*headers.toList().flatMap { listOf(it.key, it.value) }.toTypedArray())
+            .GET()
+            .build()
+        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+        val doc = Jsoup.parse(response.body())
         val iframeSrc = doc.selectFirst("iframe")?.attr("src") ?: return null
         
-        val iframeHeaders = headers.toMutableMap()
-        iframeHeaders["Referer"] = MAIN_URL
-        val iframeResponse = Request.get(iframeSrc, iframeHeaders).execute().body()
-        val iframeDoc = Jsoup.parse(iframeResponse)
-        val script = iframeDoc.select("script").first { it.html().contains("masterPlaylist") }.html()
+        val iframeHeaders = headers.plus("Referer" to MAIN_URL)
+        val iframeRequest = HttpRequest.newBuilder()
+            .uri(URI.create(iframeSrc))
+            .headers(*iframeHeaders.toList().flatMap { listOf(it.key, it.value) }.toTypedArray())
+            .GET()
+            .build()
+        val iframeResponse = client.send(iframeRequest, HttpResponse.BodyHandlers.ofString())
+        val iframeDoc = Jsoup.parse(iframeResponse.body())
+        val script = iframeDoc.select("script").find { it.html().contains("masterPlaylist") }?.html()
+            ?: return null
         
         val jsonStr = script.replace(Regex("window\\.(video|streams|masterPlaylist|canPlayFHD)"), "\"$1\"")
             .replace("params", "\"params\"")
