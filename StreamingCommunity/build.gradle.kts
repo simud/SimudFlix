@@ -1,31 +1,36 @@
-// use an integer for version numbers
-version = 17
+plugins {
+    id("com.android.library")
+    id("kotlin-android")
+    id("com.lagradost.cloudstream3.gradle")
+}
 
+android {
+    namespace = "it.dogior.hadEnough"
+    compileSdk = 35
+
+    defaultConfig {
+        minSdk = 21
+        targetSdk = 35
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+}
 
 cloudstream {
-    // All of these properties are optional, you can safely remove them
+    setRepo(System.getenv("GITHUB_REPOSITORY") ?: "https://github.com/doGior/doGiorsHadEnough")
+}
 
-    description = "TV Shows and Movies from StreamingCommunity (now StreamingUnity)"
-    authors = listOf("doGior")
+dependencies {
+    val apk by configurations
+    val implementation by configurations
 
-    /**
-    * Status int as the following:
-    * 0: Down
-    * 1: Ok
-    * 2: Slow
-    * 3: Beta only
-    * */
-    status = 1
-    tvTypes = listOf(
-        "TvSeries",
-        "Movie",
-        "Documentary",
-        "Cartoon"
-    )
-
-
-    requiresResources = false
-    language = "it"
-
-    iconUrl = "https://streamingunity.to/apple-touch-icon.png?v=2"
+    apk("com.lagradost:cloudstream3:pre-release")
+    implementation(kotlin("stdlib"))
+    implementation("com.github.Blatzar:NiceHttp:0.4.11")
+    implementation("org.jsoup:jsoup:1.18.1")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.16.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.16.0")
 }
