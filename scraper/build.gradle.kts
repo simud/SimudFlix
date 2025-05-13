@@ -1,3 +1,7 @@
+plugins {
+    kotlin("jvm") version "2.1.0"
+}
+
 repositories {
     mavenCentral()
     maven { url = uri("https://jitpack.io") }
@@ -20,7 +24,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 tasks.register<JavaExec>("run") {
     group = "execution"
     description = "Run the Scraper Kotlin script"
-    // Usa il classpath del source set principale
-    classpath = project.sourceSets["main"].runtimeClasspath
+    classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("ScraperKt")
 }
