@@ -27,7 +27,7 @@ object Scraper {
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
     private val client: HttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
-        // Proxy opzionale, decommenta e configura se necessario
+        // Proxy opzionale
         // .proxy(java.net.ProxySelector.of(java.net.InetSocketAddress("your-proxy", 8080)))
         .build()
 
@@ -37,96 +37,68 @@ object Scraper {
     data class Params(val token: String, val expires: String)
 
     fun setupHeaders(maxRetries: Int = 2): Boolean {
-        var attempt = 0
-        while (attempt <= maxRetries) {
-            try {
-                println("setupHeaders - Tentativo ${attempt + 1}/${maxRetries + 1}")
-                
-                // Prima richiesta per ottenere il token CSRF
-                val initialRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(MAIN_URL))
-                    .headers(*headers.toList().flatMap { (key, value) -> listOf(key, value) }.toTypedArray())
-                    .GET()
-                    .build()
-                val initialResponse = client.send(initialRequest, HttpResponse.BodyHandlers.ofString())
-                println("setupHeaders - Initial HTTP Status: ${initialResponse.statusCode()}")
-                println("setupHeaders - Initial Response Headers: ${initialResponse.headers().map()}")
-                println("setupHeaders - Initial Response Body (truncated): ${initialResponse.body().take(1000)}")
+        try {
+            // Prima richiesta per ottenere il token CSRF
+            val initialRequest = HttpRequest.newBuilder()
+                .uri(URI.create(MAIN_URL))
+                .headers(*headers.toList().flatMap { (key, value) -> listOf(key, value) }.toTypedArray())
+                .GET()
+                .build()
+            val initialResponse = client.send(initialRequest, HttpResponse.BodyHandlers.ofString())
+            println("setupHeaders - Initial HTTP Status: ${initialResponse.statusCode()}")
+            println("setupHeaders - Initial Response Headers: ${initialResponse.headers().map()}")
+            println("setupHeaders - Initial Response Body (truncated): ${initialResponse.body().take(1000)}")
 
-                // Salva la risposta iniziale
-                File("initial_response.html").writeText(initialResponse.body())
-                println("setupHeaders - Risposta iniziale salvata in initial_response.html")
+            // Salva la risposta iniziale
+            File("initial_response.html").writeText(initialResponse.body())
+            println("setupHeaders - Risposta iniziale salvata in initial_response.html")
 
-                // Estrai il cookie XSRF-TOKEN
-                val cookies = initialResponse.headers().allValues("set-cookie").joinToString("; ")
-                if (cookies.contains("XSRF-TOKEN")) {
-                    headers["Cookie"] = cookies
-                    println("setupHeaders - Cookie XSRF-TOKEN impostato: $cookies")
-                } else {
-                    println("setupHeaders - Avviso: Nessun XSRF-TOKEN trovato nei cookie")
-                }
+            // Estrai il cookie XSRF-TOKEN
+            val cookies = initialResponse.headers().allValues("set-cookie").joinToString("; ")
+            if (cookies.contains("XSRF-TOKEN")) {
+                headers["Cookie"] = cookies
+                println("setupHeaders - Cookie XSRF-TOKEN impostato: $cookies")
+            } else {
+                println("setupHeaders - Avviso: Nessun XSRF-TOKEN trovato nei cookie")
+            }
 
-                // Richiesta principale a /archive
-                val request = HttpRequest.newBuilder()
-                    .uri(URI.create("$MAIN_URL/archive"))
-                    .headers(*headers.toList().flatMap { (key, value) -> listOf(key, value) }.toTypedArray())
-                    .GET()
-                    .build()
-                val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-                
-                println("setupHeaders - HTTP Status: ${response.statusCode()}")
-                println("setupHeaders - Response Headers: ${response.headers().map()}")
-                println("setupHeaders - Response Body (truncated): ${response.body().take(1000)}")
-                
-                // Salva il corpo della risposta
-                File("response.html").writeText(response.body())
-                println("setupHeaders - Risposta salvata in response.html")
-
-                if (response.statusCode() == 409) {
-                    println("setupHeaders - Errore HTTP 409: Conflitto. Possibile blocco Cloudflare o configurazione errata.")
-                    attempt++
-                    if (attempt <= maxRetries) {
-                        println("setupHeaders - Riprovo tra 2 secondi...")
-                        Thread.sleep(2000)
-                        continue
-                    }
-                    return false
-                }
-                if (response.statusCode() != 200) {
-                    println("setupHeaders - Errore HTTP: ${response.statusCode()}")
-                    return false
-                }
-
-                val doc = Jsoup.parse(response.body())
-                val dataPage = doc.selectFirst("#app")?.attr("data-page") ?: doc.selectFirst("[data-page]")?.attr("data-page")
-                if (dataPage == null) {
-                    println("setupHeaders - Errore: Impossibile trovare data-page. Verifica la struttura HTML di $MAIN_URL/archive")
-                    return false
-                }
-
-                val version = objectMapper.readValue<Map<String, Any>>(dataPage).get("version") as? String
-                if (version == null) {
-                    println("setupHeaders - Errore: Impossibile estrarre X-Inertia-Version da data-page")
-                    return false
-                }
-
-                headers["X-Inertia-Version"] = version
-                headers["Cookie"] = response.headers().allValues("set-cookie").joinToString("; ")
-                println("setupHeaders - Headers configurati. Inertia Version: $version")
-                return true
-            } catch (e: Exception) {
-                println("setupHeaders - Eccezione: ${e.javaClass.name} - ${e.message}")
-                e.printStackTrace()
-                attempt++
-                if (attempt <= maxRetries) {
-                    println("setupHeaders - Riprovo tra 2 secondi...")
-                    Thread.sleep(2000)
-                    continue
-                }
+            // Usa archive.html generato da cloudscraper
+            val archiveFile = File("archive.html")
+            if (!archiveFile.exists()) {
+                println("setupHeaders - Errore: archive.html non trovato. Assicurati che cloudscraper abbia funzionato.")
                 return false
             }
+            val body = archiveFile.readText()
+            println("setupHeaders - Letto archive.html (trunked): ${body.take(1000)}")
+
+            val doc = Jsoup.parse(body)
+            val dataPage = doc.selectFirst("#app")?.attr("data-page") ?: doc.selectFirst("[data-page]")?.attr("data-page")
+            if (dataPage == null) {
+                println("setupHeaders - Errore: Impossibile trovare data-page. Verifica la struttura HTML in archive.html")
+                File("response.html").writeText(body)
+                println("setupHeaders - Risposta salvata in response.html per debug")
+                return false
+            }
+
+            val version = objectMapper.readValue<Map<String, Any>>(dataPage).get("version") as? String
+            if (version == null) {
+                println("setupHeaders - Errore: Impossibile estrarre X-Inertia-Version da data-page")
+                File("response.html").writeText(body)
+                println("setupHeaders - Risposta salvata in response.html per debug")
+                return false
+            }
+
+            headers["X-Inertia-Version"] = version
+            headers["Cookie"] = cookies
+            println("setupHeaders - Headers configurati. Inertia Version: $version")
+            return true
+        } catch (e: Exception) {
+            println("setupHeaders - Eccezione: ${e.javaClass.name} - ${e.message}")
+            e.printStackTrace()
+            File("response.html").writeText("Errore: ${e.javaClass.name} - ${e.message}")
+            println("setupHeaders - Errore salvato in response.html")
+            return false
         }
-        return false
     }
 
     fun search(query: String): List<SearchResult> {
@@ -316,7 +288,6 @@ fun main(args: Array<String>) {
     try {
         if (!Scraper.setupHeaders()) {
             println("main - Errore: Impossibile configurare gli headers. Interruzione.")
-            // Genera comunque un file M3U con messaggio di errore
             File("Simud.m3u").writeText("#EXTM3U\n# Errore: Impossibile configurare gli headers")
             println("main - File M3U generato con errore: Simud.m3u")
             return
