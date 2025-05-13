@@ -3,7 +3,6 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.jsoup.Jsoup
 import java.io.File
-import java.net.InetSocketAddress
 import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -28,11 +27,8 @@ object Scraper {
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
     private val client: HttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
-        // Configura resolver DNS per Cloudflare (1.1.1.1)
-        .resolver(java.net.spi.InetAddressResolverProvider.getByName("sun.net.spi.DefaultResolver")
-            .getResolver(InetSocketAddress("1.1.1.1", 53)))
-        // Proxy opzionale, decommenta se necessario
-        // .proxy(java.net.ProxySelector.of(InetSocketAddress("your-proxy", 8080)))
+        // Proxy opzionale, decommenta e configura se necessario
+        // .proxy(java.net.ProxySelector.of(java.net.InetSocketAddress("your-proxy", 8080)))
         .build()
 
     data class SearchResult(val name: String, val id: Int, val slug: String, val type: String)
@@ -320,7 +316,7 @@ fun main(args: Array<String>) {
     try {
         if (!Scraper.setupHeaders()) {
             println("main - Errore: Impossibile configurare gli headers. Interruzione.")
-            // Genera comunque un file M3U vuoto o con messaggio di errore
+            // Genera comunque un file M3U con messaggio di errore
             File("Simud.m3u").writeText("#EXTM3U\n# Errore: Impossibile configurare gli headers")
             println("main - File M3U generato con errore: Simud.m3u")
             return
