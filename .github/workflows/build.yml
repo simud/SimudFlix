@@ -1,69 +1,46 @@
-name: Build
-
-# https://docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions#concurrency
-concurrency: 
-  group: "build"
-  cancel-in-progress: true
+name: Simud IPTV Scraper
 
 on:
-  workflow_dispatch:  # Allows manual triggering
-  push:
-    branches:
-      # choose your default branch
-      - master
-      - main
-    paths-ignore:
-      - '*.md'
-      - '*.png'
-      - '*.yml'
+  workflow_dispatch:  # Permette l'esecuzione manuale
 
 jobs:
-  build:
+  scrape:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@master
+      - name: Checkout repository with custom token
+        uses: actions/checkout@v4
         with:
-          path: "src"
+          token: ${{ secrets.ACTIONS_TOKEN }}
 
-      - name: Checkout builds
-        uses: actions/checkout@master
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          ref: "builds"
-          path: "builds"
-      
-      - name: Clean old builds
-        run: rm $GITHUB_WORKSPACE/builds/*.cs3
+          python-version: '3.9'
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4.6.0
-        with:
-          distribution: adopt
-          java-version: 17
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 jmespath
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3.2.2
-
-      - name: Access Secrets
+      - name: Run Simud IPTV scraper
         env:
-          TMDB_API: ${{ secrets.TMDB_API }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          cd $GITHUB_WORKSPACE/src
-          echo TMDB_API=$TMDB_API >> secrets.properties
+          python extract_streams.py
 
-      - name: Build Plugins
+      - name: Commit and push updated M3U file
         run: |
-          cd $GITHUB_WORKSPACE/src
-          chmod +x gradlew
-          ./gradlew make makePluginsJson
-          cp **/build/*.cs3 $GITHUB_WORKSPACE/builds
-          cp build/plugins.json $GITHUB_WORKSPACE/builds
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add Simud.m3u
+          git commit -m "Aggiornato file M3U con nuovi flussi Marvel" || echo "Nessun cambiamento da committare"
+          git push
+        continue-on-error: true
 
-      - name: Push builds
-        run: |
-          cd $GITHUB_WORKSPACE/builds
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions"
-          git add .
-          git commit --amend -m "Build $GITHUB_SHA" || exit 0   # do not error if nothing to commit
-          git push --force
+      - name: Upload M3U Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Simud-IPTV
+          path: Simud.m3u
+        continue-on-error: true
