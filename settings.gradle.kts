@@ -1,20 +1,14 @@
-rootProject.name = "CloudstreamPlugins"
+rootProject.name = "SimudFlix"
 
-// This file sets what projects are included. Every time you add a new project, you must add it
-// to the includes below.
+// Includi i moduli della repository
+include(":StreamingCommunity")
+include(":scraper")
 
-// Plugins are included like this
-include(
-    "AnimeUnity",
-    "AnimeWorld",
-    "CalcioStreaming",
-    "CB01",
-    "CorsaroNero",
-    "DaddyLive",
-    "Huhu",
-    "OnlineSerieTV",
-    "StreamingCommunity",
-    "TV",
-    "ToonItalia",
-    "YouTube"
-)
+// Configura i repository per tutti i progetti
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") } // Necessario per NiceHttp
+    }
+}
